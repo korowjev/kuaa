@@ -5,6 +5,7 @@ abstract type ModelSpec end
 
 abstract type IdAlgo end
 abstract type OnlineAlgo <: IdAlgo end
+abstract type OnlineGradientAlgo <: OnlineAlgo end
 
 abstract type DataSource end
 
@@ -25,8 +26,9 @@ function listen(suite::OnlineSuite)
     while isactive(suite.source)
         x = next(suite.source)
         update!(suite.spec, suite.ctx, suite.algo, x)
-        if dumptime(spec.dumper)
-            dump(spec.dumper, spec.model)
+        ctxupdate(suite.ctx, x)
+        if dumptime(suite.dumper)
+            dump(suite.dumper, suite.spec, suite.ctx)
         end
     end
 end
@@ -62,11 +64,11 @@ end
 
 function next(sim::Simulator)
     y, nctx = simulate(sim.spec, sim.ctx)
-    ctxupdate(sim.ctx, y, nctx)
+    ctxupdate(sim.ctx, y)
     return y
 end
 
-function ctxupdate(ctx::ARContext, y::Float64, _::Any)
+function ctxupdate(ctx::ARContext, y::Float64)
     pushfirst!(ctx.lastobs, y)
     pop!(ctx.lastobs)    
 end
@@ -79,7 +81,7 @@ end
 
 abstract type AlgoMemory end
 
-mutable struct OnlineNewtonStep <: OnlineAlgo
+mutable struct OnlineNewtonStep <: OnlineGradientAlgo
     γ::Float64
     ϵ::Float64
     x::Array{Float64, 1}
@@ -97,29 +99,61 @@ function step!(algo::OnlineNewtonStep, g::Array{Float64, 1})
     algo.x -= 1/algo.γ * algo.A^-1 * g
 end
 
-function update!(spec::ARSpec, ctx::ARContext, algo::OnlineNewtonStep, y::Float64)
-    yhat = predict(spec, ctx)
-    error = y - yhat
-    g = - 2 * error * [[1.0]; ctx.lastobs]
+function update!(spec::ModelSpec, ctx::Context, algo::OnlineGradientAlgo, y::Float64)
+    g = gradient(spec, ctx, y)
     step!(algo, g)
-    spec.μ = algo.x[1]
-    spec.ϕ = algo.x[2:end]
+    fromvec!(spec, algo.x)
 end
 
 function predict(spec::ARSpec, ctx::ARContext)
     spec.μ + sum(spec.ϕ .* ctx.lastobs)
 end
 
+function gradient(spec::ARSpec, ctx::ARContext, y::Float64)
+    yhat = predict(spec, ctx)
+    error = y - yhat
+    g = - 2 * error * [[1.0]; ctx.lastobs]
+    return [g; [-2(error^2 - spec.σ^2)]]
+end
+
+function fromvec!(spec::ARSpec, vec::Array{Float64, 1})
+    spec.μ = vec[1]
+    spec.ϕ = vec[2:end-1]
+    spec.σ = vec[end]
+end
+
+
+mutable struct PrintSnapshot <: ModelDumper
+    counter::Int
+    refresh::Int
+
+    function PrintSnapshot(r::Int)
+        new(0, r)
+    end
+end
+
+function dumptime(d::PrintSnapshot)
+    if d.counter == d.refresh
+        d.counter = 0
+        return true
+    end
+    d.counter += 1
+    false
+end
+
+function dump(d::PrintSnapshot, spec::ModelSpec, ctx::Context)
+    print("$spec \n")
+end
+
+
+
 spec = ARSpec([0.5, -0.1], 0.2, 0.05)
 simul = Simulator(spec)
 
 nspec = ARSpec([0.0, 0.0], 0.0, 1.0)
-algo = OnlineNewtonStep(10.0, 1.0, 3)
+algo = OnlineNewtonStep(10.0, 1.0, 4)
 ctx = ARContext(zeros(2))
-for i in 1:200000
-    y = next(simul)
-    update!(nspec, ctx, algo, y)
-    ctxupdate(ctx, y, nothing)
-end
 
-    
+suite = OnlineSuite(nspec, algo, simul, ctx, PrintSnapshot(10000))
+
+listen(suite)
