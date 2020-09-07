@@ -12,12 +12,26 @@ mutable struct ARSpec <: ModelSpec
 end
 
 struct ARContext <: Context
+    y::Float64
     lastobs::Array{Float64, 1}
 end
 
-function ctxupdate(ctx::ARContext, y::Float64)
-    pushfirst!(ctx.lastobs, y)
-    pop!(ctx.lastobs)    
+function specfromvec!(::Type{ARSpec}, vec::Array{Float64, 1})
+    μ = vec[1]
+    ϕ = vec[2:end-1]
+    σ = vec[end]
+    ARSpec(ϕ, μ, σ)
+end
+
+function ctxupdate!(ctx₀::ARContext, spec::ARSpec, y::Float64)
+    lastobs₁ = ctx₀.lastobs
+    pushfirst!(lastobs₁, y)
+    pop!(lastobs₁)    
+    ARContext(y, lastobs₁)
+end
+
+function ctxupdate!(ctx::ARContext,spec::ARSpec, y::Float64, e)
+    ctxupdate!(ctx, spec, y)
 end
 
 function predict(spec::ARSpec, ctx::ARContext)
@@ -59,10 +73,4 @@ end
 function simulate(spec::ARSpec, ctx::ARContext)
     ϵ = randn() * spec.σ
     spec.μ + sum(spec.ϕ .* ctx.lastobs) + ϵ, nothing
-end
-
-function fromvec!(spec::ARSpec, vec::Array{Float64, 1})
-    spec.μ = vec[1]
-    spec.ϕ = vec[2:end-1]
-    spec.σ = vec[end]
 end

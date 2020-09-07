@@ -1,15 +1,10 @@
 abstract type OnlineMomentAlgo <: OnlineAlgo end
 
-mutable struct OnlineMethodMoments <: OnlineMomentAlgo
-    γ::Float64
-    moments::Array{Float64, 1}
-    automs::Array{Float64, 1}
-
-    function OnlineMethodMoments(gamma::Float64, mdim::Int, adim::Int)
-        m = zeros(mdim)
-        am = zeros(adim)
-        new(gamma, m, am)
+function setup!(algo::OnlineMomentAlgo, spec::ModelSpec, ctx::Context, y::Float64)
+    if isnothing(algo.eqs)
+        algo.eqs = getmeqs(spec)
     end
+    updatemoments!(algo, y, ctx)
 end
 
 function updatemoments!(algo::OnlineMomentAlgo, y::Float64, ctx::Context)
@@ -22,14 +17,21 @@ function updatemoments!(algo::OnlineMomentAlgo, y::Float64, ctx::Context)
     end
 end
 
-function solveparams(algo::OnlineMomentAlgo, eqs::Function)
-    eqs(algo.moments, algo.automs)
+mutable struct OnlineMethodMoments <: OnlineMomentAlgo
+    γ::Float64
+    moments::Array{Float64, 1}
+    automs::Array{Float64, 1}
+    eqs::Union{Function, Nothing}
+    x::Array{Float64, 1}
+    
+    function OnlineMethodMoments(gamma::Float64, dim::Int, mdim::Int, adim::Int)
+        m = zeros(mdim)
+        am = zeros(adim)
+        x = zeros(dim)
+        new(gamma, m, am, nothing, x)
+    end
 end
 
-
-function update!(spec::ModelSpec, ctx::Context, algo::OnlineMomentAlgo, y::Float64)
-     updatemoments!(algo, y, ctx)
-     eqs = getmeqs(spec)
-     pars = solveparams(algo, eqs)
-     fromvec!(spec, pars)
+function step!(algo::OnlineMethodMoments)
+    algo.x = algo.eqs(algo.moments, algo.automs)
 end

@@ -17,13 +17,27 @@ struct OnlineSuite <: Suite
 end
 
 function listen(suite::OnlineSuite)
-    while isactive(suite.source)
-        x = next(suite.source)
-        update!(suite.spec, suite.ctx, suite.algo, x)
-        ctxupdate(suite.ctx, x)
-        if dumptime(suite.dumper)
-            dump(suite.dumper, suite.spec, suite.ctx)
-        end
+    let algo = suite.algo, spec = suite.spec, ctx = suite.ctx, dumper = suite.dumper
+        while isactive(suite.source)
+            y = next!(suite.source)
+            algo, spec, ctx = process!(algo, spec, ctx, y)
+            dumper = ++(dumper)
+            if dumptime(dumper)
+                dump(dumper, spec, ctx)
+            end          
+        end 
     end
+end
+
+function process!(algo₀::OnlineAlgo, spec₀::ModelSpec, ctx₀::Context, y::Float64)
+    algo₁, spec₁, ctx₁ = setup!(algo₀, spec₀, ctx₀, y)
+    algo₂ = step!(algo₁)
+    update!(spec₁, ctx₁, algo₂, y)
+end
+
+function update!(spec::ModelSpec, ctx::Context, algo::OnlineAlgo, y::Float64)
+    spec₁ = specfromvec!(typeof(spec), algo.x)
+    ctx₁ = ctxupdate!(ctx, spec₁, y)
+    (algo, spec₁, ctx₁)
 end
 
