@@ -1,5 +1,13 @@
 include("utils.jl")
 
+function specfromvec((spec, ctx, algo, y)::Tuple{ModelSpec, Context, Any, Float64})
+    (specfromvec(typeof(spec), algo.x), ctx, algo, y)
+end
+
+function ctxupdate((spec, ctx, algo, y)::Tuple{ModelSpec, Context, Any, Float64})
+    (spec, ctxupdate(ctx, spec, y), algo)    
+end
+
 mutable struct ARSpec <: ModelSpec
     p::Int
     ϕ::Array{Float64, 1}
@@ -16,14 +24,14 @@ struct ARContext <: Context
     lastobs::Array{Float64, 1}
 end
 
-function specfromvec!(::Type{ARSpec}, vec::Array{Float64, 1})
+function specfromvec(::Type{ARSpec}, vec::Array{Float64, 1})
     μ = vec[1]
     ϕ = vec[2:end-1]
     σ = vec[end]
     ARSpec(ϕ, μ, σ)
 end
 
-function ctxupdate!(ctx₀::ARContext, spec::ARSpec, y::Float64)
+function ctxupdate(ctx₀::ARContext, spec::ARSpec, y::Float64)
     lastobs₁ = ctx₀.lastobs
     pushfirst!(lastobs₁, y)
     pop!(lastobs₁)    
@@ -31,7 +39,7 @@ function ctxupdate!(ctx₀::ARContext, spec::ARSpec, y::Float64)
 end
 
 function ctxupdate!(ctx::ARContext,spec::ARSpec, y::Float64, e)
-    ctxupdate!(ctx, spec, y)
+    ctxupdate(ctx, spec, y)
 end
 
 function predict(spec::ARSpec, ctx::ARContext)

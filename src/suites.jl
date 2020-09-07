@@ -20,7 +20,7 @@ function listen(suite::OnlineSuite)
     let algo = suite.algo, spec = suite.spec, ctx = suite.ctx, dumper = suite.dumper
         while isactive(suite.source)
             y = next!(suite.source)
-            algo, spec, ctx = process!(algo, spec, ctx, y)
+            spec, ctx, algo = process(algo, spec, ctx, y)
             dumper = ++(dumper)
             if dumptime(dumper)
                 dump(dumper, spec, ctx)
@@ -29,15 +29,15 @@ function listen(suite::OnlineSuite)
     end
 end
 
-function process!(algo₀::OnlineAlgo, spec₀::ModelSpec, ctx₀::Context, y::Float64)
-    algo₁, spec₁, ctx₁ = setup!(algo₀, spec₀, ctx₀, y)
-    algo₂ = step!(algo₁)
-    update!(spec₁, ctx₁, algo₂, y)
+function process(algo₀::OnlineAlgo, spec₀::ModelSpec, ctx₀::Context, y::Float64)
+    (algo₀, spec₀, ctx₀, y) |> setup |> step |> update
 end
 
-function update!(spec::ModelSpec, ctx::Context, algo::OnlineAlgo, y::Float64)
-    spec₁ = specfromvec!(typeof(spec), algo.x)
-    ctx₁ = ctxupdate!(ctx, spec₁, y)
-    (algo, spec₁, ctx₁)
+function update(spec::ModelSpec, ctx::Context, algo::OnlineAlgo, y::Float64)
+    (spec, ctx, algo, y) |> specfromvec |> ctxupdate
+end
+
+function update((spec, ctx, algo, y)::Tuple{ModelSpec, Context, OnlineAlgo, Float64})
+    update(spec, ctx, algo, y)
 end
 

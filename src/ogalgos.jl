@@ -1,9 +1,17 @@
 abstract type OnlineGradientAlgo <: OnlineAlgo end
 
-function setup!(algo₀::OnlineGradientAlgo, spec::ModelSpec, ctx::Context, y::Float64)
+function setup(algo₀::OnlineGradientAlgo, spec::ModelSpec, ctx::Context, y::Float64)
     g = gradient(spec, ctx, y)
     algo₁ = typeof(algo₀)(algo₀, g)
-    (algo₁, spec, ctx)
+    (algo₁, spec, ctx, y)
+end
+
+function setup((algo, spec, ctx, y)::Tuple{OnlineGradientAlgo, ModelSpec, Context, Float64})
+    setup(algo, spec, ctx, y)
+end
+
+function step((algo, spec, ctx, y)::Tuple{OnlineAlgo, ModelSpec, Context, Float64})
+    (spec, ctx, step(algo), y)
 end
 
 struct OnlineNewtonStep <: OnlineGradientAlgo
@@ -30,9 +38,9 @@ struct OnlineNewtonStep <: OnlineGradientAlgo
     
 end
 
-function step!(algo::OnlineNewtonStep)
-    A₁ = algo.A + algo.g*algo.g'
-    x₁ = algo.x - 1/algo.γ * A₁^-1 * algo.g
-    OnlineNewtonStep(x₁, algo.g, algo.γ, A₁, algo.ϵ)
+function step(algo₀::OnlineNewtonStep)
+    A₁ = algo₀.A + algo₀.g*algo₀.g'
+    x₁ = algo₀.x - 1/algo₀.γ * A₁^-1 * algo₀.g
+    OnlineNewtonStep(x₁, algo₀.g, algo₀.γ, A₁, algo₀.ϵ)
 end
 
