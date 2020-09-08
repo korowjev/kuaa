@@ -1,5 +1,3 @@
-abstract type ModelDumper end
-
 mutable struct PrintSnapshot <: ModelDumper
     counter::Int
     refresh::Int

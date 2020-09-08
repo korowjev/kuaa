@@ -1,12 +1,3 @@
-include("utils.jl")
-
-function specfromvec((spec, ctx, algo, y)::Tuple{ModelSpec, Context, Any, Float64})
-    (specfromvec(typeof(spec), algo.x), ctx, algo, y)
-end
-
-function ctxupdate((spec, ctx, algo, y)::Tuple{ModelSpec, Context, Any, Float64})
-    (spec, ctxupdate(ctx, spec, y), algo)    
-end
 
 mutable struct ARSpec <: ModelSpec
     p::Int
@@ -24,22 +15,22 @@ struct ARContext <: Context
     lastobs::Array{Float64, 1}
 end
 
-function specfromvec(::Type{ARSpec}, vec::Array{Float64, 1})
-    μ = vec[1]
-    ϕ = vec[2:end-1]
-    σ = vec[end]
-    ARSpec(ϕ, μ, σ)
+function specfromvec(d::PipelineDrop{ARSpec, ARContext, <:OnlineAlgo, <:Observation})
+    spec₀, ctx₀, algo₀, obs = unpack(d)
+    μ = algo₀.x[1]
+    ϕ = algo₀.x[2:end-1]
+    σ = algo₀.x[end]
+    spec₁ = ARSpec(ϕ, μ, σ)
+    PipelineDrop(spec₁, ctx₀, algo₀, obs)
 end
 
-function ctxupdate(ctx₀::ARContext, spec::ARSpec, y::Float64)
+function ctxupdate(d::PipelineDrop{ARSpec, ARContext, <:OnlineAlgo, <:Observation})
+    spec₀, ctx₀, algo₀, obs = unpack(d)
     lastobs₁ = ctx₀.lastobs
-    pushfirst!(lastobs₁, y)
+    pushfirst!(lastobs₁, obs)
     pop!(lastobs₁)    
-    ARContext(y, lastobs₁)
-end
-
-function ctxupdate!(ctx::ARContext,spec::ARSpec, y::Float64, e)
-    ctxupdate(ctx, spec, y)
+    ctx₁ = ARContext(obs, lastobs₁)
+    PipelineDrop(spec₀, ctx₁, algo₀, obs)
 end
 
 function predict(spec::ARSpec, ctx::ARContext)
@@ -72,13 +63,16 @@ function getmeqs(spec::ARSpec)
 end
 
 function gradient(spec::ARSpec, ctx::ARContext, y::Float64)
+    g = zeros(spec.p + 2)
     yhat = predict(spec, ctx)
     error = y - yhat
-    g = - 2 * error * [[1.0]; ctx.lastobs]
-    return [g; [-2(error^2 - spec.σ^2)]]
+    g[1] = - 2 * error
+    g[2:end-1] = - 2 * error * ctx.lastobs
+    g[end] = -2(error^2 - spec.σ^2)
+    return g
 end
 
 function simulate(spec::ARSpec, ctx::ARContext)
     ϵ = randn() * spec.σ
-    spec.μ + sum(spec.ϕ .* ctx.lastobs) + ϵ, nothing
+    spec.μ + sum(spec.ϕ .* ctx.lastobs) + ϵ
 end

@@ -1,17 +1,15 @@
 abstract type OnlineGradientAlgo <: OnlineAlgo end
 
-function setup(algo₀::OnlineGradientAlgo, spec::ModelSpec, ctx::Context, y::Float64)
-    g = gradient(spec, ctx, y)
+
+function unpack(d::PipelineDrop{<:ModelSpec, <:Context, <:OnlineAlgo, <:Observation})
+    (d.spec, d.ctx, d.algo, d.obs)
+end
+
+function setup(d::PipelineDrop{<:ModelSpec, <:Context, <:OnlineGradientAlgo, <:Observation})
+    spec₀, ctx₀, algo₀, obs = unpack(d)
+    g = gradient(spec₀, ctx₀, obs)
     algo₁ = typeof(algo₀)(algo₀, g)
-    (algo₁, spec, ctx, y)
-end
-
-function setup((algo, spec, ctx, y)::Tuple{OnlineGradientAlgo, ModelSpec, Context, Float64})
-    setup(algo, spec, ctx, y)
-end
-
-function step((algo, spec, ctx, y)::Tuple{OnlineAlgo, ModelSpec, Context, Float64})
-    (spec, ctx, step(algo), y)
+    PipelineDrop(spec₀, ctx₀, algo₁, obs)
 end
 
 struct OnlineNewtonStep <: OnlineGradientAlgo
@@ -38,9 +36,11 @@ struct OnlineNewtonStep <: OnlineGradientAlgo
     
 end
 
-function step(algo₀::OnlineNewtonStep)
+function step(d::PipelineDrop{<:ModelSpec, <:Context, OnlineNewtonStep, <:Observation})
+    spec₀, ctx₀, algo₀, obs = unpack(d)
     A₁ = algo₀.A + algo₀.g*algo₀.g'
     x₁ = algo₀.x - 1/algo₀.γ * A₁^-1 * algo₀.g
-    OnlineNewtonStep(x₁, algo₀.g, algo₀.γ, A₁, algo₀.ϵ)
+    algo₁ = OnlineNewtonStep(x₁, algo₀.g, algo₀.γ, A₁, algo₀.ϵ)
+    PipelineDrop(spec₀, ctx₀, algo₁, obs)
 end
 

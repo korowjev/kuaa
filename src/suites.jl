@@ -1,6 +1,9 @@
 using Random
 using LinearAlgebra
 
+include("atree.jl")
+include("utils.jl")
+
 include("specs.jl")
 include("algos.jl")
 include("dumpers.jl")
@@ -8,36 +11,29 @@ include("datasources.jl")
 
 abstract type Suite end
 
-struct OnlineSuite <: Suite
-    spec::ModelSpec
-    algo::OnlineAlgo
+struct OnlineSuite{T <: ModelSpec, S <: Context, R <: OnlineAlgo, Q <: Observation} <: Suite
+    drop::PipelineDrop{T, S, R, Q}
     source::DataSource
-    ctx::Context
     dumper::ModelDumper
 end
 
 function listen(suite::OnlineSuite)
-    let algo = suite.algo, spec = suite.spec, ctx = suite.ctx, dumper = suite.dumper
-        while isactive(suite.source)
-            y = next!(suite.source)
-            spec, ctx, algo = process(algo, spec, ctx, y)
+    let drop = suite.drop, dumper = suite.dumper, source=suite.source
+        while isactive(source)
+            source = next(source, drop)
+            drop = process(source.obs)
             dumper = ++(dumper)
             if dumptime(dumper)
-                dump(dumper, spec, ctx)
+                dump(dumper, drop.spec, drop.ctx)
             end          
         end 
     end
 end
 
-function process(algo₀::OnlineAlgo, spec₀::ModelSpec, ctx₀::Context, y::Float64)
-    (algo₀, spec₀, ctx₀, y) |> setup |> step |> update
+function process(d::PipelineDrop)
+    d |> setup |> step |> update
 end
 
-function update(spec::ModelSpec, ctx::Context, algo::OnlineAlgo, y::Float64)
-    (spec, ctx, algo, y) |> specfromvec |> ctxupdate
+function update(d::PipelineDrop)
+    d |> specfromvec |> ctxupdate
 end
-
-function update((spec, ctx, algo, y)::Tuple{ModelSpec, Context, OnlineAlgo, Float64})
-    update(spec, ctx, algo, y)
-end
-
