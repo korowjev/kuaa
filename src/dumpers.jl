@@ -12,11 +12,15 @@ mutable struct PrintSnapshot <: ModelDumper
 end
 
 function dumptime(d::PrintSnapshot)
-    d.counter == 0
+    if d.counter == d.refresh
+        d.counter = 0
+        return true
+    end
+    d.counter += 1
+    false
 end
 
 function ++(d::PrintSnapshot)
-    c₁ = d.counter == d.refresh ? 0 : d.counter + 1
     PrintSnapshot(c₁, d.refresh)
 end
 

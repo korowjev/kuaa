@@ -25,7 +25,6 @@ end
 function next(sim::Simulator, d::PipelineDrop{<:ModelSpec, <:Context, <:OnlineAlgo, <:Observation})    
     spec₀, ctx₀, algo₀, obs = unpack(d)
     obs₁ = simulate(sim.spec, sim.ctx)
-    d = ctxupdate(PipelineDrop(sim.spec, sim.ctx, OnlineNewtonStep(1.0,1.0,1), obs₁))
-    ds = PipelineDrop(spec₀, ctx₀, algo₀, obs₁)
-    return Simulator(sim.spec, d.ctx, ds)
+    sim.ctx = ctxupdate(PipelineDrop(sim.spec, sim.ctx, OnlineNewtonStep(1.0,1.0,1), obs₁)).ctx
+    PipelineDrop(spec₀, ctx₀, algo₀, obs₁)
 end

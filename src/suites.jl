@@ -20,9 +20,7 @@ end
 function listen(suite::OnlineSuite)
     let drop = suite.drop, dumper = suite.dumper, source=suite.source
         while isactive(source)
-            source = next(source, drop)
-            drop = process(source.obs)
-            dumper = ++(dumper)
+            drop = drop |> Base.Fix1(next, source) |> process
             if dumptime(dumper)
                 dump(dumper, drop.spec, drop.ctx)
             end          
