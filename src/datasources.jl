@@ -22,9 +22,9 @@ function isactive(sim::Simulator)
     true
 end
 
-function next(sim::Simulator, d::PipelineDrop{<:ModelSpec, <:Context, <:OnlineAlgo, <:Observation})    
+function next(sim::Simulator, d::PipelineFlow{<:ModelSpec, <:Context, <:OnlineAlgo, <:Observation})    
     spec₀, ctx₀, algo₀, obs = unpack(d)
     obs₁ = simulate(sim.spec, sim.ctx)
-    sim.ctx = ctxupdate(PipelineDrop(sim.spec, sim.ctx, OnlineNewtonStep(1.0,1.0,1), obs₁)).ctx
-    PipelineDrop(spec₀, ctx₀, algo₀, obs₁)
+    sim.ctx = ctxupdate(PipelineFlow(sim.spec, sim.ctx, OnlineNewtonStep(1.0,1.0,1), obs₁)).ctx
+    PipelineFlow(spec₀, ctx₀, algo₀, obs₁)
 end

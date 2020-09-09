@@ -1,3 +1,1 @@
-include("ogalgos.jl")
-include("omalgos.jl")
-include("rmlalgos.jl")
+include("onlinealgos.jl")

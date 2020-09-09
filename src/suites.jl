@@ -12,26 +12,26 @@ include("datasources.jl")
 abstract type Suite end
 
 struct OnlineSuite{T <: ModelSpec, S <: Context, R <: OnlineAlgo, Q <: Observation} <: Suite
-    drop::PipelineDrop{T, S, R, Q}
+    flow::PipelineFlow{T, S, R, Q}
     source::DataSource
     dumper::ModelDumper
 end
 
 function listen(suite::OnlineSuite)
-    let drop = suite.drop, dumper = suite.dumper, source=suite.source
+    let flow = suite.flow, dumper = suite.dumper, source=suite.source
         while isactive(source)
-            drop = drop |> Base.Fix1(next, source) |> process
+            flow = flow |> Base.Fix1(next, source) |> process
             if dumptime(dumper)
-                dump(dumper, drop.spec, drop.ctx)
-            end          
-        end 
+                dump(dumper, flow.spec, flow.ctx)
+            end
+        end
     end
 end
 
-function process(d::PipelineDrop)
+function process(d::PipelineFlow)
     d |> setup |> step |> update
 end
 
-function update(d::PipelineDrop)
+function update(d::PipelineFlow)
     d |> specfromvec |> ctxupdate
 end

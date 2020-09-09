@@ -4,11 +4,11 @@ spec = ARSpec([0.2, -0.1], 0.20, 0.5)
 simul = Simulator(spec)
 
 nspec = ARSpec([0.0, 0.0], 0.0, 1.0)
-algo = OnlineNewtonStep(1.0, 1.0, 4)
-#algo = OnlineMethodMoments(0.0001, 6, 4, 4)
+#algo = OnlineNewtonStep(1.0, 1.0, 4)
+algo = OnlineMethodMoments(0.0001, 4, 2, 2)
 ctx = ARContext(0.0, zeros(2))
 
-suite = OnlineSuite(PipelineDrop(nspec, ctx, algo, 0.0),simul, PrintSnapshot(100000))
+suite = OnlineSuite(PipelineFlow(nspec, ctx, algo, 0.0),simul, PrintSnapshot(100000))
 
 listen(suite)
 

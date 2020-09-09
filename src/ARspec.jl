@@ -1,4 +1,3 @@
-
 mutable struct ARSpec <: ModelSpec
     p::Int
     ϕ::Array{Float64, 1}
@@ -15,22 +14,24 @@ struct ARContext <: Context
     lastobs::Array{Float64, 1}
 end
 
-function specfromvec(d::PipelineDrop{ARSpec, ARContext, <:OnlineAlgo, <:Observation})
+ARFlow = PipelineFlow{ARSpec, ARContext, <:IdAlgo, <:Observation}
+
+function specfromvec(d::ARFlow)
     spec₀, ctx₀, algo₀, obs = unpack(d)
     μ = algo₀.x[1]
     ϕ = algo₀.x[2:end-1]
-    σ = algo₀.x[end]
+    σ = max(0.0, algo₀.x[end])
     spec₁ = ARSpec(ϕ, μ, σ)
-    PipelineDrop(spec₁, ctx₀, algo₀, obs)
+    PipelineFlow(spec₁, ctx₀, algo₀, obs)
 end
 
-function ctxupdate(d::PipelineDrop{ARSpec, ARContext, <:OnlineAlgo, <:Observation})
+function ctxupdate(d::ARFlow)
     spec₀, ctx₀, algo₀, obs = unpack(d)
     lastobs₁ = ctx₀.lastobs
     pushfirst!(lastobs₁, obs)
     pop!(lastobs₁)    
     ctx₁ = ARContext(obs, lastobs₁)
-    PipelineDrop(spec₀, ctx₁, algo₀, obs)
+    PipelineFlow(spec₀, ctx₁, algo₀, obs)
 end
 
 function predict(spec::ARSpec, ctx::ARContext)

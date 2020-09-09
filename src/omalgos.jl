@@ -1,20 +1,18 @@
 abstract type OnlineMomentAlgo <: OnlineAlgo end
 
-function setup!(algo::OnlineMomentAlgo, spec::ModelSpec, ctx::Context, y::Float64)
-    if isnothing(algo.eqs)
-        algo.eqs = getmeqs(spec)
-    end
-    updatemoments!(algo, y, ctx)
+function setup(d::OAlgoFlow{<:OnlineMomentAlgo})
+    spec₀, ctx₀, algo₀, obs = unpack(d)
+    eqs₁ = getmeqs(spec)
+    moments, automs = updatemoments(algo₀, obs, ctx₀)
+    algo₁ = typeof(algo₀)(algo₀, moments, automs, eqs₁)
+    PipelineFlow(spec₀, ctx₀, algo₁, obs)
 end
 
-function updatemoments!(algo::OnlineMomentAlgo, y::Float64, ctx::Context)
-    ms, cs = length(algo.moments), length(algo.automs)
-    for i in 1:ms
-        algo.moments[i] += algo.γ * (y^i - algo.moments[i])
-    end
-    for i in 1:cs
-        algo.automs[i] += algo.γ * (y*ctx.lastobs[i] - algo.automs[i])
-    end
+function updatemoments(algo::OnlineMomentAlgo, y::Float64, ctx::Context)
+    ms = length(algo.moments)
+    moments = algo.moments + algo.γ * (y.^(1:ms) .- algo.moments)
+    automs = algo.automs + algo.γ * (y*ctx.lastobs - algo.automs)
+    (moments, automs)
 end
 
 mutable struct OnlineMethodMoments <: OnlineMomentAlgo
@@ -30,8 +28,21 @@ mutable struct OnlineMethodMoments <: OnlineMomentAlgo
         x = zeros(dim)
         new(gamma, m, am, nothing, x)
     end
+
+    function OnlineMethodMoments(cp₀::OnlineMethodMoments, m, a, e)
+        new(cp₀.γ, m, a, e, cp₀.x)
+    end
+
+    
+    function OnlineMethodMoments(g, m, a, e, x)
+        new(g, m, a, e, x)
+    end
+
 end
 
-function step!(algo::OnlineMethodMoments)
-    algo.x = algo.eqs(algo.moments, algo.automs)
+function step(d::OAlgoFlow{<:OnlineMethodMoments})
+    spec₀, ctx₀, algo₀, obs = unpack(d)
+    x₁ = algo₀.eqs(algo₀.moments, algo₀.automs)
+    algo₁ = OnlineMethodMoments(algo₀.γ, algo₀.moments, algo₀.automs, algo₀.eqs, x₁)
+    PipelineFlow(spec₀, ctx₀, algo₁, obs)
 end
