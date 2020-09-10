@@ -44,11 +44,11 @@ end
 
 function specfromvec(d::ARMAFlow)
     spec₀, ctx₀, algo₀, obs = unpack(d)
-    vec = [[1]; algo₀.β; [1]]
+    vec = algo₀.β
     μ = vec[1]
     ϕ = vec[2:spec₀.p+1]
     θ = vec[spec₀.p+2:end-1]
-    σ = vec[end]
+    σ = sqrt(vec[end])
     spec₁ = ARMASpec(ϕ, θ, μ, σ)
     PipelineFlow(spec₁, ctx₀, algo₀, obs)
 end

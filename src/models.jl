@@ -13,7 +13,7 @@ include("suites.jl")
 # listen(suite)
 
 
-spec = ARMASpec([0.5, 0.25], [-0.1, 0.15], 0.0, 0.25)
+spec = ARMASpec([0.5, 0.25], [-0.1, 0.15], 0.75, 0.25)
 simul = Simulator(spec)
 
 nspec = ARMASpec([0.01, 0.0], [0.0, 0.0], 0.0, 0.25)

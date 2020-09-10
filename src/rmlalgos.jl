@@ -18,10 +18,10 @@ mutable struct RMLAlgo <: RecursiveLikelihoodAlgo
     pdim::Int
 
     function RMLAlgo(gamma::Float64, epsilon::Float64, pdim::Int, mdim::Int)
-        beta = zeros(mdim)
-        psi = zeros(mdim)
-        R = Array(I(mdim) * 1.0) .* epsilon
-        ops = zeros(mdim, mdim-pdim)
+        beta = zeros(mdim+2)
+        psi = zeros(mdim+1)
+        R = Array(I(mdim+1) * 1.0) .* epsilon
+        ops = zeros(mdim+1, mdim-pdim)
         errs = zeros(mdim-pdim)
         new(gamma, epsilon, psi, beta, R,errs, ops, pdim)
     end
@@ -34,12 +34,13 @@ end
 function step(d::OAlgoFlow{<:RMLAlgo})
     spec, ctx, algo, obs = unpack(d)
     errs₀ = algo.errs
-    Φ₀ = [ctx.lastobs; errs₀]
+    Φ₀ = [[1]; ctx.lastobs; errs₀]
     Ψ₁ = copy(Φ₀)
-    Ψ₁ += sum(algo.oldpsis * diagm(algo.β[algo.pdim+1:end]), dims=2)[:,1]
+    Ψ₁ += sum(algo.oldpsis * diagm(algo.β[algo.pdim+2:end-1]), dims=2)[:,1]
     R₁ = algo.R + algo.γ * (Ψ₁ * Ψ₁' - algo.R)
-    e = obs - algo.β' * Φ₀
-    β₁ = algo.β + algo.γ * inv(R₁) * Ψ₁ * e
+    e = obs - algo.β[1:end-1]' * Φ₀
+    β₁ = algo.β[1:end-1] + algo.γ * inv(R₁) * Ψ₁ * e
+    push!(β₁, algo.β[end] + algo.γ * (e^2 - algo.β[end]))
     oldpsis = zeros(size(algo.oldpsis))
     oldpsis[:,2:end] = algo.oldpsis[:,1:end-1]
     oldpsis[:,1] = Φ₀
