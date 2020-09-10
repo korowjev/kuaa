@@ -8,10 +8,6 @@ mutable struct Simulator <: DataSource
         new(spec, ctx, 0.0)
     end
 
-    function Simulator(spec::ARSpec, ctx::ARContext, y)
-        new(spec, ctx, y)
-    end
-
     function Simulator(spec::ARMASpec)
         ctx = ARMAContext(0.0, zeros(spec.p), zeros(spec.q))
         new(spec, ctx, 0.0)
