@@ -13,12 +13,12 @@ include("suites.jl")
 # listen(suite)
 
 
-spec = ARMASpec([0.5, 0.25], [-0.1], 0.0, 0.25)
+spec = ARMASpec([0.5, 0.25], [-0.1, 0.15], 0.0, 0.25)
 simul = Simulator(spec)
 
-nspec = ARMASpec([0.01, 0.0], [0.0], 0.0, 0.25)
-algo = RMLAlgo(0.0001, 0.01, 2, 3)
-ctx = ARMAContext(0.0, zeros(2), zeros(1))
+nspec = ARMASpec([0.01, 0.0], [0.0, 0.0], 0.0, 0.25)
+algo = RMLAlgo(0.00001, 0.01, 2, 4)
+ctx = ARMAContext(0.0, zeros(2), zeros(2))
 
 suite = OnlineSuite(PipelineFlow(nspec, ctx, algo, 0.0), simul, PrintSnapshot(100000))
 

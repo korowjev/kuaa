@@ -33,25 +33,18 @@ end
 
 function step(d::OAlgoFlow{<:RMLAlgo})
     spec, ctx, algo, obs = unpack(d)
-    errs = algo.errs
-    phit = [ctx.lastobs; -errs] #esta mal el error que tomo
-    newpsi = zeros(length(phit))
-    newpsi += phit
-    for i in algo.pdim+1:length(algo.β)
-        newpsi += (algo.β[i] * algo.oldpsis[:,i-algo.pdim])
-    end
-    R₁ = algo.R + algo.γ * (newpsi * newpsi' - algo.R)
-    e = obs - algo.β' * phit
-    β₁ = algo.β + algo.γ * inv(R₁) * newpsi * e
+    errs₀ = algo.errs
+    Φ₀ = [ctx.lastobs; errs₀]
+    Ψ₁ = copy(Φ₀)
+    Ψ₁ += sum(algo.oldpsis * diagm(algo.β[algo.pdim+1:end]), dims=2)[:,1]
+    R₁ = algo.R + algo.γ * (Ψ₁ * Ψ₁' - algo.R)
+    e = obs - algo.β' * Φ₀
+    β₁ = algo.β + algo.γ * inv(R₁) * Ψ₁ * e
     oldpsis = zeros(size(algo.oldpsis))
-    for i in 2:size(algo.oldpsis)[2]
-        oldpsis[:,i] = algo.oldpsis[:,i-1]
-    end
-    oldpsis[:,1] = newpsi
-    for i in 2:length(errs)
-        errs[i] = errs[i-1]
-    end
-    errs[1] = e
-    algo₁ = RMLAlgo(algo.γ, algo.ϵ, newpsi, β₁, R₁, errs, oldpsis, algo.pdim)
+    oldpsis[:,2:end] = algo.oldpsis[:,1:end-1]
+    oldpsis[:,1] = Φ₀
+    errs₀[2:end] = algo.errs[1:end-1]
+    errs₀[1] = e
+    algo₁ = RMLAlgo(algo.γ, algo.ϵ, Ψ₁, β₁, R₁, errs₀, oldpsis, algo.pdim)
     PipelineFlow(spec, ctx, algo₁, obs)
 end
