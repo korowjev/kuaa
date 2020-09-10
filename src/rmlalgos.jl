@@ -1,5 +1,12 @@
 abstract type RecursiveLikelihoodAlgo <: OnlineAlgo end
 
+function setup(d::OAlgoFlow{<:RecursiveLikelihoodAlgo})
+    spec₀, ctx₀, algo₀, obs = unpack(d)
+    PipelineFlow(spec₀, ctx₀, algo₀, obs)
+end
+
+
+
 mutable struct RMLAlgo <: RecursiveLikelihoodAlgo
     γ::Float64
     ϵ::Float64
@@ -16,26 +23,28 @@ mutable struct RMLAlgo <: RecursiveLikelihoodAlgo
         ops = zeros(mdim, mdim-pdim)
         new(gamma, epsilon, psi, beta, R, ops, pdim)
     end
+
+    function RMLAlgo(g::Float64, e::Float64, ps, b, R, op, pd)
+        new(g,e,ps,b,R,op,pd)
+    end
 end
 
-function step!(algo::RMLAlgo, ctx::ARMAContext, y::Float64)
+function step(d::OAlgoFlow{<:RMLAlgo})
+    spec, ctx, algo, obs = unpack(d)
     phit = [ctx.lastobs; -ctx.lasterrs] #esta mal el error que tomo
     newpsi = zeros(length(phit))
     newpsi += phit
     for i in algo.pdim+1:length(algo.β)
         newpsi += algo.β[i] * algo.oldpsis[:,i-algo.pdim]
     end
-    algo.R += algo.γ * (newpsi * newpsi' - algo.R)
-    e = y - algo.β' * phit
-    algo.β += algo.γ * inv(algo.R) * newpsi * e
+    R₁ = algo.R + algo.γ * (newpsi * newpsi' - algo.R)
+    e = obs - algo.β' * phit
+    β₁ = algo.β + algo.γ * inv(algo.R) * newpsi * e
+    oldpsis = zeros(size(algo.oldpsis))
     for i in 2:size(algo.oldpsis)[2]
-        algo.oldpsis[:,i] = algo.oldpsis[:,i-1]
+        oldpsis[:,i] = algo.oldpsis[:,i-1]
     end
-    algo.oldpsis[:,1] = newpsi
-end
-
-function update!(algo::RMLAlgo, spec::ModelSpec, ctx::Context, y::Float64)
-    step!(algo, ctx, y)
-    fromvec!(spec, [[0]; algo.β; [1]])
-    ctxupdate!(ctx, spec, y)
+    oldpsis[:,1] = newpsi
+    algo₁ = RMLAlgo(algo.γ, algo.ϵ, newpsi, β₁, R₁, oldpsis, algo.pdim)
+    PipelineFlow(spec, ctx, algo₁, obs)
 end

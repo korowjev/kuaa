@@ -1,5 +1,3 @@
-include("utils.jl")
-
 mutable struct ARMASpec <: ModelSpec
     p::Int
     q::Int
@@ -14,20 +12,25 @@ mutable struct ARMASpec <: ModelSpec
 end
 
 struct ARMAContext <: Context
+    y::Float64
     lastobs::Array{Float64, 1}
     lasterrs::Array{Float64, 1}
 end
 
-function ctxupdate(ctx::ARMAContext, spec::ARMASpec, y::Float64, e::Float64)
-    pushfirst!(ctx.lasterrs, e)
-    pop!(ctx.lasterrs)
-    pushfirst!(ctx.lastobs, y)
-    pop!(ctx.lastobs)
-end
+ARMAFlow = PipelineFlow{ARMASpec, ARMAContext, <:IdAlgo, <:Observation}
 
-function ctxupdate(ctx::ARMAContext, spec::ARMASpec, y::Float64)
-    e = y - predict(spec, ctx)
-    ctxupdate(ctx, spec, y, e)
+
+function ctxupdate(d::ARMAFlow)
+    spec₀, ctx₀, algo₀, obs = unpack(d)
+    e = obs - predict(spec₀, ctx₀)
+    lasterrs = ctx₀.lasterrs
+    pushfirst!(lasterrs, e)
+    pop!(lasterrs)
+    lastobs = ctx₀.lastobs
+    pushfirst!(lastobs, obs)
+    pop!(lastobs)
+    ctx₁ = ARMAContext(obs, lastobs, lasterrs)
+    PipelineFlow(spec₀, ctx₁, algo₀, obs)
 end
 
 function predict(spec::ARMASpec, ctx::ARMAContext)
@@ -36,12 +39,16 @@ end
 
 function simulate(spec::ARMASpec, ctx::ARMAContext)
     ϵ = randn() * spec.σ
-    spec.μ + sum(spec.ϕ .* ctx.lastobs) + sum(spec.θ .* ctx.lasterrs) + ϵ, ϵ
+    spec.μ + sum(spec.ϕ .* ctx.lastobs) + sum(spec.θ .* ctx.lasterrs) + ϵ
 end
 
-function fromvec!(spec::ARMASpec, vec::Array{Float64, 1})
-    spec.μ = vec[1]
-    spec.ϕ = vec[2:spec.p+1]
-    spec.θ = vec[spec.p+2:end-1]
-    spec.σ = vec[end]
+function specfromvec(d::ARMAFlow)
+    spec₀, ctx₀, algo₀, obs = unpack(d)
+    vec = [[1]; algo₀.β; [1]]
+    μ = vec[1]
+    ϕ = vec[2:spec₀.p+1]
+    θ = vec[spec₀.p+2:end-1]
+    σ = vec[end]
+    spec₁ = ARMASpec(ϕ, θ, μ, σ)
+    PipelineFlow(spec₁, ctx₀, algo₀, obs)
 end
