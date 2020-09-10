@@ -11,7 +11,7 @@ mutable struct RMLAlgo <: RecursiveLikelihoodAlgo
     γ::Float64
     ϵ::Float64
     ψ::Array{Float64, 1}
-    β::Array{Float64, 1}
+    x::Array{Float64, 1}
     R::Array{Float64, 2}
     errs::Array{Float64, 1}
     oldpsis::Array{Float64, 2}
@@ -34,18 +34,20 @@ end
 function step(d::OAlgoFlow{<:RMLAlgo})
     spec, ctx, algo, obs = unpack(d)
     errs₀ = algo.errs
+    β = algo.x[1:end-1]
+    σ²₀ = algo.x[end]
     Φ₀ = [[1]; ctx.lastobs; errs₀]
     Ψ₁ = copy(Φ₀)
-    Ψ₁ += sum(algo.oldpsis * diagm(algo.β[algo.pdim+2:end-1]), dims=2)[:,1]
+    Ψ₁ += sum(algo.oldpsis * diagm(β[algo.pdim+2:end]), dims=2)[:,1]
     R₁ = algo.R + algo.γ * (Ψ₁ * Ψ₁' - algo.R)
-    e = obs - algo.β[1:end-1]' * Φ₀
-    β₁ = algo.β[1:end-1] + algo.γ * inv(R₁) * Ψ₁ * e
-    push!(β₁, algo.β[end] + algo.γ * (e^2 - algo.β[end]))
+    e = obs - β' * Φ₀
+    β₁ = β + algo.γ * inv(R₁) * Ψ₁ * e
+    σ²₁ = σ²₀ + algo.γ * (e^2 - σ²₀)
     oldpsis = zeros(size(algo.oldpsis))
     oldpsis[:,2:end] = algo.oldpsis[:,1:end-1]
     oldpsis[:,1] = Φ₀
     errs₀[2:end] = algo.errs[1:end-1]
     errs₀[1] = e
-    algo₁ = RMLAlgo(algo.γ, algo.ϵ, Ψ₁, β₁, R₁, errs₀, oldpsis, algo.pdim)
+    algo₁ = RMLAlgo(algo.γ, algo.ϵ, Ψ₁, [β₁; [σ²₁]], R₁, errs₀, oldpsis, algo.pdim)
     PipelineFlow(spec, ctx, algo₁, obs)
 end

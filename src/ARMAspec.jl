@@ -44,7 +44,7 @@ end
 
 function specfromvec(d::ARMAFlow)
     spec₀, ctx₀, algo₀, obs = unpack(d)
-    vec = algo₀.β
+    vec = algo₀.x
     μ = vec[1]
     ϕ = vec[2:spec₀.p+1]
     θ = vec[spec₀.p+2:end-1]
